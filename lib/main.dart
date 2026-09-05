@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_german/api_service.dart';
 import 'package:flutter_german/models/api_exception.dart';
+import 'package:flutter_german/screens/output_screen.dart';
 
 void main() {
   runApp(const MainApp());
@@ -32,12 +33,16 @@ class HomePage extends StatefulWidget {
 }
 
 class HomePageState extends State<HomePage> {
-  TextEditingController controller = TextEditingController();
+  TextEditingController wordController = TextEditingController();
+  TextEditingController sentenceController = TextEditingController();
   String? word;
-  String? translation;
+  List<String>? translation;
   String? errorMessage;
   String? germanSentence;
   String? englishSentence;
+  String? germanSentence2;
+  String? englishSentence2;
+  String? germanSentence3;
   bool isLoading = false;
   @override
   Widget build(BuildContext context) {
@@ -46,18 +51,57 @@ class HomePageState extends State<HomePage> {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            TextField(controller: controller),
+            TextField(controller: wordController),
+            TextField(controller: sentenceController),
             ElevatedButton(
               onPressed: isLoading ? null : translateWord,
               child: Text('test'),
             ),
+            ElevatedButton(
+              onPressed: () async {
+                final definitions = await ApiService.getDefinition(
+                  'bird',
+                  'verb',
+                );
+
+                for (final definition in definitions) {
+                  print(definition);
+                }
+              },
+              child: Text('test DEF'),
+            ),
             if (isLoading) const CircularProgressIndicator(),
 
-            if (translation != null) Text(translation!),
+            ElevatedButton(
+              onPressed: () async {
+                final sentence = sentenceController.text;
+                if (sentence.isEmpty) {
+                  return;
+                }
+                final word = wordController.text;
+                if(word.isEmpty){
+                  return;
+                }
+                final noWordSentence = sentence.replaceAll(word, '_____');
+                final translated = await ApiService.translateSentence(sentence);
+                setState(() {
+                  englishSentence2 = translated;
+                  germanSentence2 = sentence;
+                  germanSentence3 = noWordSentence;
+                });
+              },
+              child: Text('test SENT'),
+            ),
 
             if (germanSentence != null) Text(germanSentence!),
 
             if (englishSentence != null) Text(englishSentence!),
+
+            if (germanSentence2 != null) Text(germanSentence2!),
+
+            if (germanSentence3 != null) Text(germanSentence3!),
+
+            if (englishSentence2 != null) Text(englishSentence2!),
 
             if (errorMessage != null) Text(errorMessage!),
           ],
@@ -67,7 +111,7 @@ class HomePageState extends State<HomePage> {
   }
 
   Future<void> translateWord() async {
-    final word = controller.text.trim();
+    final word = wordController.text.trim();
 
     if (word.isEmpty) {
       return;
@@ -87,6 +131,10 @@ class HomePageState extends State<HomePage> {
         englishSentence = result.englishSentence;
         isLoading = false;
       });
+      Navigator.push(
+        context,
+        MaterialPageRoute(builder: (context) => OutputScreen(response: result)),
+      );
     } on ApiException catch (e) {
       setState(() {
         errorMessage = e.message;
