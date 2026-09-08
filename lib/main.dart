@@ -1,7 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_german/api_service.dart';
+import 'package:flutter_german/app_colors.dart';
 import 'package:flutter_german/models/api_exception.dart';
+import 'package:flutter_german/models/word_response.dart';
+import 'package:flutter_german/screens/input_screen.dart';
 import 'package:flutter_german/screens/output_screen.dart';
+import 'package:flutter_german/screens/output_screen_outdated.dart';
 
 void main() {
   runApp(const MainApp());
@@ -12,8 +16,29 @@ class MainApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const MaterialApp(
-      home: Scaffold(body: Center(child: HomePage2())),
+    return MaterialApp(
+      theme: ThemeData(
+        useMaterial3: true,
+        brightness: Brightness.dark,
+        inputDecorationTheme: InputDecorationTheme(
+          filled: true,
+          border: OutlineInputBorder(
+            borderSide: BorderSide.none,
+            borderRadius: BorderRadius.circular(10),
+          ),
+        ),
+        elevatedButtonTheme: ElevatedButtonThemeData(
+          style: ElevatedButton.styleFrom(
+            foregroundColor: AppColors.primaryText,
+            backgroundColor: AppColors.primaryAccent,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(10),
+            ),
+            padding: EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+          ),
+        ),
+      ),
+      home: Scaffold(body: Center(child: OutputScreen())),
     );
   }
 }
@@ -23,11 +48,12 @@ class HomePage2 extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return HomePage();
+    return InputScreen();
   }
 }
 
 class HomePage extends StatefulWidget {
+  const HomePage({super.key});
   @override
   State<StatefulWidget> createState() => HomePageState();
 }
@@ -37,6 +63,7 @@ class HomePageState extends State<HomePage> {
   TextEditingController sentenceController = TextEditingController();
   String? word;
   List<String>? translation;
+  ScrapedData? scrapedData;
   String? errorMessage;
   String? germanSentence;
   String? englishSentence;
@@ -57,19 +84,7 @@ class HomePageState extends State<HomePage> {
               onPressed: isLoading ? null : translateWord,
               child: Text('test'),
             ),
-            ElevatedButton(
-              onPressed: () async {
-                final definitions = await ApiService.getDefinition(
-                  'bird',
-                  'verb',
-                );
-
-                for (final definition in definitions) {
-                  print(definition);
-                }
-              },
-              child: Text('test DEF'),
-            ),
+            ElevatedButton(onPressed: () async {}, child: Text('test DEF')),
             if (isLoading) const CircularProgressIndicator(),
 
             ElevatedButton(
@@ -79,11 +94,13 @@ class HomePageState extends State<HomePage> {
                   return;
                 }
                 final word = wordController.text;
-                if(word.isEmpty){
+                if (word.isEmpty) {
                   return;
                 }
-                final noWordSentence = sentence.replaceAll(word, '_____');
-                final translated = await ApiService.translateSentence(sentence);
+                final blankString = '_' * word.length;
+                final noWordSentence = sentence.replaceAll(word, blankString);
+
+                final translated = await ApiService.translateShitty(sentence);
                 setState(() {
                   englishSentence2 = translated;
                   germanSentence2 = sentence;
@@ -119,21 +136,31 @@ class HomePageState extends State<HomePage> {
 
     setState(() {
       isLoading = true;
-      translation = null;
-      errorMessage = null;
     });
+
+    final sentence = sentenceController.text;
+    if (sentence.isEmpty) {
+      return;
+    }
 
     try {
       final result = await ApiService.getWord(word);
+      final translated = await ApiService.translateShitty(sentence);
+      scrapedData = ScrapedData(
+        wordResponse: result,
+        originalSentence: sentence,
+        translatedSentence: translated,
+      );
       setState(() {
-        translation = result.translations;
-        germanSentence = result.germanSentence;
-        englishSentence = result.englishSentence;
         isLoading = false;
       });
+
       Navigator.push(
         context,
-        MaterialPageRoute(builder: (context) => OutputScreen(response: result)),
+        MaterialPageRoute(
+          builder: (context) =>
+              OutputScreen2(response: result, scrapedData: scrapedData!),
+        ),
       );
     } on ApiException catch (e) {
       setState(() {

@@ -55,4 +55,22 @@ class ApiService {
 
     return jsonDecode(response.body);
   }
+
+  static Future<String> translateShitty(String sentence) async {
+    final uri = Uri.http('10.0.2.2:8000', '/translate-shitty');
+
+    final response = await http.post(
+      uri,
+      headers: {'Content-Type': 'application/json'},
+      body: jsonEncode({'sentence': sentence}),
+    );
+
+    print(response.body);
+
+    if (response.statusCode != 200) {
+      throw Exception('Failed to translate sentence');
+    }
+
+    return jsonDecode(response.body);
+  }
 }

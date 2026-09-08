@@ -79,3 +79,11 @@ class AdjectiveData {
     );
   }
 }
+
+class ScrapedData{
+  final WordResponse wordResponse;
+  final String? originalSentence;
+  final String? translatedSentence;
+
+  ScrapedData({required this.wordResponse, this.originalSentence, this.translatedSentence});
+}
