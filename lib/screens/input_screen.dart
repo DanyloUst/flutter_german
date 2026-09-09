@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_german/api_service.dart';
 import 'package:flutter_german/models/word_response.dart';
+import 'package:flutter_german/screens/output_screen.dart';
 
 class InputScreen extends StatefulWidget {
   const InputScreen({super.key});
@@ -38,7 +39,9 @@ class InputScreenState extends State<InputScreen> {
             SizedBox(
               width: double.infinity,
               child: ElevatedButton(
-                onPressed: () {},
+                onPressed: () {
+                  Navigator.push(context, MaterialPageRoute(builder: (context) => OutputScreen()));
+                },
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [

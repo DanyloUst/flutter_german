@@ -20,6 +20,7 @@ class MainApp extends StatelessWidget {
       theme: ThemeData(
         useMaterial3: true,
         brightness: Brightness.dark,
+        scaffoldBackgroundColor: AppColors.background,
         inputDecorationTheme: InputDecorationTheme(
           filled: true,
           border: OutlineInputBorder(
@@ -27,6 +28,7 @@ class MainApp extends StatelessWidget {
             borderRadius: BorderRadius.circular(10),
           ),
         ),
+        cardTheme: CardThemeData(color: AppColors.primaryCard),
         elevatedButtonTheme: ElevatedButtonThemeData(
           style: ElevatedButton.styleFrom(
             foregroundColor: AppColors.primaryText,
@@ -38,7 +40,7 @@ class MainApp extends StatelessWidget {
           ),
         ),
       ),
-      home: Scaffold(body: Center(child: OutputScreen())),
+      home: Scaffold(body: Center(child: InputScreen())),
     );
   }
 }
