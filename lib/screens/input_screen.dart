@@ -11,6 +11,7 @@ class InputScreen extends StatefulWidget {
 }
 
 class InputScreenState extends State<InputScreen> {
+  ScrapedData? scrapedData;
   @override
   Widget build(BuildContext context) {
     return Scaffold(
