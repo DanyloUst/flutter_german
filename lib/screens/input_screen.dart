@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_german/api_service.dart';
+import 'package:flutter_german/models/api_exception.dart';
 import 'package:flutter_german/models/word_response.dart';
 import 'package:flutter_german/screens/output_screen.dart';
 
@@ -11,7 +12,11 @@ class InputScreen extends StatefulWidget {
 }
 
 class InputScreenState extends State<InputScreen> {
+  bool isLoading = false;
+  String? errorMessage;
   ScrapedData? scrapedData;
+  TextEditingController wordController = TextEditingController();
+  TextEditingController sentenceController = TextEditingController();
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -27,7 +32,10 @@ class InputScreenState extends State<InputScreen> {
             ),
             SizedBox(height: 15),
             Text('Word'),
-            TextField(decoration: InputDecoration(hint: Text('e.g. Haus'))),
+            TextField(
+              decoration: InputDecoration(hint: Text('e.g. Haus')),
+              controller: wordController,
+            ),
             SizedBox(height: 15),
             Text('Sentence'),
             TextField(
@@ -35,27 +43,77 @@ class InputScreenState extends State<InputScreen> {
                 hint: Text('e.g. Ich gehe nach Hause'),
               ),
               maxLines: 2,
+              controller: sentenceController,
             ),
             SizedBox(height: 15),
             SizedBox(
               width: double.infinity,
               child: ElevatedButton(
                 onPressed: () {
-                  Navigator.push(context, MaterialPageRoute(builder: (context) => OutputScreen()));
+                  scrapeData();
                 },
-                child: Row(
+                child: !isLoading ? Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
                     Text('Scrape'),
                     SizedBox(width: 5),
                     Icon(Icons.arrow_forward),
                   ],
-                ),
+                ) : CircularProgressIndicator(),
               ),
             ),
+            
           ],
         ),
       ),
     );
+  }
+
+  Future<void> scrapeData() async {
+    final word = wordController.text.trim();
+
+    if (word.isEmpty) {
+      return;
+    }
+
+    setState(() {
+      isLoading = true;
+    });
+
+    final sentence = sentenceController.text;
+    if (sentence.isEmpty) {
+      return;
+    }
+
+    try {
+      final result = await ApiService.getWord(word);
+      final translated = await ApiService.translateShitty(sentence);
+      scrapedData = ScrapedData(
+        wordResponse: result,
+        originalSentence: sentence,
+        translatedSentence: translated,
+      );
+      setState(() {
+        isLoading = false;
+      });
+
+      if (!mounted) return;
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (context) => OutputScreen(scrapedData: scrapedData!),
+        ),
+      );
+    } on ApiException catch (e) {
+      setState(() {
+        errorMessage = e.message;
+        isLoading = false;
+      });
+    } catch (e) {
+      setState(() {
+        errorMessage = 'Could not connect to the server.';
+        isLoading = false;
+      });
+    }
   }
 }
