@@ -28,7 +28,7 @@ class OutputScreenState extends State<OutputScreen> {
     setState(() {
       isLoading = true;
     });
-    final definitionsList = await ApiService.getDefinition(
+    final definitionsList = await ApiService.scrapeDefinition(
       word,
       widget.scrapedData.wordResponse.type,
     );

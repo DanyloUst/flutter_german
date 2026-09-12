@@ -22,7 +22,7 @@ void main() {
   testWidgets('translateShitty2 translates a simple German word', (
     tester,
   ) async {
-    final result = await ApiService.translateShitty2('Haus', src: 'de', dst: 'en');
+    final result = await ApiService.translateShitty('Haus', src: 'de', dst: 'en');
 
     expect(result, isNotEmpty);
     print(result); // should read "house" or close to it
