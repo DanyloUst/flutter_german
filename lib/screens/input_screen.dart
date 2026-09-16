@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_german/api_service.dart';
 import 'package:flutter_german/models/api_exception.dart';
 import 'package:flutter_german/models/word_response.dart';
+import 'package:flutter_german/screens/debug_screen.dart';
 import 'package:flutter_german/screens/output_screen.dart';
 
 class InputScreen extends StatefulWidget {
@@ -20,7 +21,20 @@ class InputScreenState extends State<InputScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: Text("German Scrapper")),
+      appBar: AppBar(
+        title: Text("German Scrapper"),
+        actions: [
+          TextButton(
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (context) => DebugScreen()),
+              );
+            },
+            child: Text('TEST'),
+          ),
+        ],
+      ),
       body: Padding(
         padding: EdgeInsetsGeometry.symmetric(horizontal: 15, vertical: 15),
         child: Column(
@@ -52,17 +66,18 @@ class InputScreenState extends State<InputScreen> {
                 onPressed: () {
                   scrapeData();
                 },
-                child: !isLoading ? Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Text('Scrape'),
-                    SizedBox(width: 5),
-                    Icon(Icons.arrow_forward),
-                  ],
-                ) : CircularProgressIndicator(),
+                child: !isLoading
+                    ? Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Text('Scrape'),
+                          SizedBox(width: 5),
+                          Icon(Icons.arrow_forward),
+                        ],
+                      )
+                    : CircularProgressIndicator(),
               ),
             ),
-            
           ],
         ),
       ),

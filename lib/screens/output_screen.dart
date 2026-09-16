@@ -46,6 +46,19 @@ class OutputScreenState extends State<OutputScreen> {
     AdjectiveData? adjectiveData =
         widget.scrapedData.wordResponse.adjectiveData;
     final response = widget.scrapedData.wordResponse;
+
+    final originalSentence = widget.scrapedData.originalSentence;
+    final translatedSentence = widget.scrapedData.translatedSentence;
+    String? originalBlank = originalSentence;
+
+    if (originalSentence != null) {
+      for (final word in originalSentence.split(' ')) {
+        if (word.contains(response.word)) {
+          originalBlank = originalSentence.replaceAll(word, '_' * word.length);
+        }
+      }
+    }
+
     return Scaffold(
       appBar: AppBar(title: Text("Result")),
       body: Padding(
@@ -78,25 +91,22 @@ class OutputScreenState extends State<OutputScreen> {
                 isCopyAll: false,
                 isLoading: isLoading,
               ),
-              widget.scrapedData.originalSentence != null
+              originalSentence != null
                   ? TextCard(
                       title: 'Your sentence (German)',
-                      content: widget.scrapedData.originalSentence!,
+                      content: originalSentence,
                     )
                   : SizedBox.shrink(),
-              widget.scrapedData.originalSentence != null
+              translatedSentence != null
                   ? TextCard(
                       title: 'Your sentence (Translation)',
-                      content: widget.scrapedData.translatedSentence!,
+                      content: translatedSentence,
                     )
                   : SizedBox.shrink(),
-              widget.scrapedData.originalSentence != null
+              originalBlank != null
                   ? TextCard(
                       title: 'Your sentence (With a blank)',
-                      content: widget.scrapedData.originalSentence!.replaceAll(
-                        response.word,
-                        '_' * response.word.length,
-                      ),
+                      content: originalBlank,
                     )
                   : SizedBox.shrink(),
               TextCard(
@@ -199,7 +209,7 @@ class DropdownCard extends StatelessWidget {
             Row(
               children: [
                 isLoading
-                    ? CircularProgressIndicator()
+                    ? Center(child: CircularProgressIndicator())
                     : Expanded(
                         child: DropdownButtonFormField<String>(
                           isExpanded: true,

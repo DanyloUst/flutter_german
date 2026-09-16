@@ -9,41 +9,6 @@ import 'package:flutter_german/models/api_exception.dart';
 class ApiService {
   static const String baseUrl = 'http://10.0.2.2:8000';
 
- /* static Future<WordResponse> getWord(String word) async {
-    final uri = Uri.http('10.0.2.2:8000', '/word', {'word': word});
-
-    final response = await http.get(uri);
-
-    if (response.statusCode != 200) {
-      throw Exception('Failed to get word');
-    }
-
-    final data = jsonDecode(response.body);
-
-    return WordResponse.fromJson(data);
-  }*/
-
- /* static Future<List<String>> getDefinition(
-    String word,
-    String wordType,
-  ) async {
-    final uri = Uri.http('10.0.2.2:8000', '/definition', {
-      'word': word,
-      'word_type': wordType,
-    });
-
-    final response = await http.get(uri);
-
-    if (response.statusCode != 200) {
-      throw Exception('Failed to get word');
-    }
-
-    final data = jsonDecode(response.body);
-
-    return List<String>.from(data);
-  }*/
-
-
   static List<Element> findAllContainingText(
     Document doc,
     String selector,
@@ -118,40 +83,6 @@ class ApiService {
 
     return definitions;
   }
-
- /* static Future<String> translateSentenceOLD(String sentence) async {
-    final uri = Uri.http('10.0.2.2:8000', '/translate-sentence');
-
-    final response = await http.post(
-      uri,
-      headers: {'Content-Type': 'application/json'},
-      body: jsonEncode({'sentence': sentence}),
-    );
-
-    if (response.statusCode != 200) {
-      throw Exception('Failed to translate sentence');
-    }
-
-    return jsonDecode(response.body);
-  }*/
-
- /* static Future<String> translateShittyOLD(String sentence) async {
-    final uri = Uri.http('10.0.2.2:8000', '/translate-shitty');
-
-    final response = await http.post(
-      uri,
-      headers: {'Content-Type': 'application/json'},
-      body: jsonEncode({'sentence': sentence}),
-    );
-
-    print(response.body);
-
-    if (response.statusCode != 200) {
-      throw Exception('Failed to translate sentence');
-    }
-
-    return jsonDecode(response.body);
-  }*/
 
   static Future<String> translateShitty(
     String text2, {
