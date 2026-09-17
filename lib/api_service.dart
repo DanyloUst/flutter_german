@@ -19,6 +19,7 @@ class ApiService {
         .where((el) => el.text.contains(substring))
         .toList();
   }
+
   /// Mirrors bs4's get_text(separator, strip=True): joins all descendant
   /// text nodes with [separator], stripping each piece and dropping empties.
   static String getTextWithSeparator(Element el, String separator) {
@@ -42,20 +43,23 @@ class ApiService {
     return pieces.join(separator);
   }
 
-    static Future<WordResponse> getWordDart(String word) async {
-    final data = await scrapeWord(word);
+  static Future<List<WordResponse>> getWordsDart(String word) async {
+    final results = await scrapeWord(word);
 
-    if (data.isEmpty) {
+    if (results.isEmpty) {
       throw Exception('Failed to get word');
     }
 
-    return WordResponse.fromJson(data);
+    return results.map((data) => WordResponse.fromJson(data)).toList();
   }
 
   static Future<List<String>> scrapeDefinition(
     String word,
     String wordType,
   ) async {
+    if(wordType == 'sein' || wordType == 'haben'){
+      wordType = 'verb';
+    } 
     final url = Uri.parse('https://www.dictionary.com/browse/$word');
     final response = await http.get(url);
 

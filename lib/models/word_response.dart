@@ -81,9 +81,9 @@ class AdjectiveData {
 }
 
 class ScrapedData{
-  final WordResponse wordResponse;
+  final List<WordResponse> wordResponses;
   final String? originalSentence;
   final String? translatedSentence;
 
-  ScrapedData({required this.wordResponse, this.originalSentence, this.translatedSentence});
+  ScrapedData({required this.wordResponses, this.originalSentence, this.translatedSentence});
 }

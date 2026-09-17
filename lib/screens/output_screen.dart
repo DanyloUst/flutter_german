@@ -16,10 +16,12 @@ class OutputScreenState extends State<OutputScreen> {
   List<String> definitions = [];
   late String selectedValue;
   bool isLoading = false;
+  late WordResponse selectedWord;
 
   @override
   void initState() {
-    selectedValue = widget.scrapedData.wordResponse.translations.first;
+    selectedWord = widget.scrapedData.wordResponses[0];
+    selectedValue = selectedWord.translations.first;
     getDefinitions(selectedValue);
     super.initState();
   }
@@ -30,7 +32,7 @@ class OutputScreenState extends State<OutputScreen> {
     });
     final definitionsList = await ApiService.scrapeDefinition(
       word,
-      widget.scrapedData.wordResponse.type,
+      selectedWord.type,
     );
     setState(() {
       definitions = definitionsList;
@@ -40,12 +42,11 @@ class OutputScreenState extends State<OutputScreen> {
 
   @override
   Widget build(BuildContext context) {
-    List<String> translations = widget.scrapedData.wordResponse.translations;
-    NounData? nounData = widget.scrapedData.wordResponse.nounData;
-    VerbData? verbData = widget.scrapedData.wordResponse.verbData;
-    AdjectiveData? adjectiveData =
-        widget.scrapedData.wordResponse.adjectiveData;
-    final response = widget.scrapedData.wordResponse;
+    List<String> translations = selectedWord.translations;
+    NounData? nounData = selectedWord.nounData;
+    VerbData? verbData = selectedWord.verbData;
+    AdjectiveData? adjectiveData = selectedWord.adjectiveData;
+    final response = selectedWord;
 
     final originalSentence = widget.scrapedData.originalSentence;
     final translatedSentence = widget.scrapedData.translatedSentence;
@@ -67,6 +68,39 @@ class OutputScreenState extends State<OutputScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
+              Row(
+                children: widget.scrapedData.wordResponses.map((response) {
+                  bool isSelected = response == selectedWord;
+                  return Expanded(
+                    child: InkWell(
+                      onTap: () {
+                        setState(() {
+                          selectedWord = response;
+                        });
+                      },
+                      child: Padding(
+                        padding: EdgeInsetsGeometry.directional(
+                          top: 5,
+                          start: 5,
+                          end: 5,
+                          bottom: 10,
+                        ),
+                        child: Row(
+                          children: [
+                            Icon(
+                              isSelected
+                                  ? Icons.radio_button_checked
+                                  : Icons.radio_button_off,
+                            ),
+                            SizedBox(width: 5),
+                            Text(response.type),
+                          ],
+                        ),
+                      ),
+                    ),
+                  );
+                }).toList(),
+              ),
               MainCard(
                 word: response.word,
                 nounData: nounData,

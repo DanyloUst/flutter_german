@@ -65,6 +65,13 @@ class InputScreenState extends State<InputScreen> {
               child: ElevatedButton(
                 onPressed: () {
                   scrapeData();
+                  /*Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) =>
+                          OutputScreen(scrapedData: exampleScrapedData),
+                    ),
+                  );*/
                 },
                 child: !isLoading
                     ? Row(
@@ -97,14 +104,14 @@ class InputScreenState extends State<InputScreen> {
 
     final sentence = sentenceController.text;
     if (sentence.isEmpty) {
-      return;
+      //return; sentence isnt required
     }
 
     try {
-      final result = await ApiService.getWordDart(word);
+      final result = await ApiService.getWordsDart(word);
       final translated = await ApiService.translateShitty(sentence);
       scrapedData = ScrapedData(
-        wordResponse: result,
+        wordResponses: result,
         originalSentence: sentence,
         translatedSentence: translated,
       );
@@ -120,11 +127,14 @@ class InputScreenState extends State<InputScreen> {
         ),
       );
     } on ApiException catch (e) {
+      print('API EXCEPTION: ${e.message}');
       setState(() {
         errorMessage = e.message;
         isLoading = false;
       });
-    } catch (e) {
+    } catch (e, stackTrace) {
+      print('UNEXPECTED ERROR: $e');
+      print(stackTrace);
       setState(() {
         errorMessage = 'Could not connect to the server.';
         isLoading = false;
@@ -132,3 +142,41 @@ class InputScreenState extends State<InputScreen> {
     }
   }
 }
+
+final exampleScrapedData = ScrapedData(
+  originalSentence: 'Der Zug fährt um acht Uhr ab.',
+  translatedSentence: 'The train departs at eight o\'clock.',
+  wordResponses: [
+    WordResponse(
+      word: 'abfahren',
+      translations: ['to depart', 'to leave'],
+      germanSentence: 'Der Zug fährt um acht Uhr ab.',
+      englishSentence: 'The train departs at eight o\'clock.',
+      type: 'verb',
+      verbData: VerbData(
+        infinitive: 'abfahren',
+        prateritum: 'fuhr ab',
+        perfect: 'ist abgefahren',
+      ),
+    ),
+    WordResponse(
+      word: 'Abfahrt',
+      translations: ['departure'],
+      germanSentence: 'Die Abfahrt ist um acht Uhr.',
+      englishSentence: 'The departure is at eight o\'clock.',
+      type: 'verb',
+      nounData: NounData(article: 'die', plural: ['Abfahrten']),
+    ),
+    WordResponse(
+      word: 'schnell',
+      translations: ['fast', 'quick'],
+      germanSentence: 'Der Zug ist sehr schnell.',
+      englishSentence: 'The train is very fast.',
+      type: 'adjective',
+      adjectiveData: AdjectiveData(
+        comparative: 'schneller',
+        superlative: 'am schnellsten',
+      ),
+    ),
+  ],
+);

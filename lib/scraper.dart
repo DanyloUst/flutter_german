@@ -1,6 +1,34 @@
+import 'dart:async';
+import 'dart:io';
 import 'package:http/http.dart' as http;
+import 'package:http/io_client.dart';
 import 'package:html/parser.dart' as html_parser;
 import 'package:html/dom.dart';
+
+// verify=False in Python disables SSL certificate verification.
+// Dart's plain http.Client doesn't support this directly, so we build
+// a custom client backed by dart:io's HttpClient with cert checks disabled.
+// WARNING: this is insecure (accepts any cert, including MITM'd ones) —
+// only use it against the specific hosts you already trust/expect here,
+// same caveat as in the original Python.
+final http.Client _insecureClient = IOClient(
+  HttpClient()..badCertificateCallback = (cert, host, port) => true,
+);
+
+String urlFriendly(String word) {
+  return word.replaceAll('ß', 's5');
+}
+
+String cleanWord(String word) {
+  word = word.replaceAll('(', '').replaceAll(')', '');
+  word = word.replaceAll(
+    RegExp(r'[\u2070\u00B9\u00B2\u00B3\u2074-\u2079]+'),
+    '',
+  );
+  return word.trim();
+}
+
+// ---------- sibling/text helpers ----------
 
 String? findPreviousTextSibling(Element el) {
   final parent = el.parentNode;
@@ -20,8 +48,6 @@ String? findPreviousTextSibling(Element el) {
   return null;
 }
 
-/// Finds the first element matching [selector] whose own text
-/// equals [text] exactly (bs4's string="...").
 Element? findByExactText(Document doc, String selector, String text) {
   for (final el in doc.querySelectorAll(selector)) {
     if (el.text.trim() == text) return el;
@@ -29,8 +55,6 @@ Element? findByExactText(Document doc, String selector, String text) {
   return null;
 }
 
-/// Finds the first td whose text equals [text] after trimming,
-/// mirroring bs4's string=lambda text: text.strip() == "..."
 Element? findTdByTrimmedText(Element scope, String text) {
   for (final td in scope.querySelectorAll('td')) {
     if (td.text.trim() == text) return td;
@@ -38,120 +62,96 @@ Element? findTdByTrimmedText(Element scope, String text) {
   return null;
 }
 
-// ---------- clean_word ----------
-
-String cleanWord(String word) {
-  word = word.replaceAll('(', '').replaceAll(')', '');
-  word = word.replaceAll(
-    RegExp(r'[\u2070\u00B9\u00B2\u00B3\u2074-\u2079]+'),
-    '',
-  );
-  return word.trim();
+bool _infoParagraphEndsWith(Document soup, String suffix) {
+  final infoP = soup.querySelector('p.rInf');
+  if (infoP == null) return false;
+  return infoP.text.trim().toLowerCase().endsWith(suffix.toLowerCase());
 }
 
-// ---------- scrape_noun ----------
+// ---------- scrape_noun / scrape_adjective / scrape_verb ----------
 
-Map<String, dynamic> scrapeNoun(Document doc, String word) {
-  final articleSection = doc.querySelector('span.vGrnd');
+Map<String, dynamic> scrapeNoun(Document soup, String word) {
+  final articleSection = soup.querySelector('span.vGrnd');
   final wordElement = articleSection?.querySelector('b');
-  if (wordElement == null) {
-    throw StateError('Could not find noun word element for "$word"');
-  }
+  final article = wordElement != null
+      ? (findPreviousTextSibling(wordElement) ?? 'Article not found')
+      : 'Article not found';
 
-  final article = findPreviousTextSibling(wordElement);
-  if (article == null) {
-    throw StateError('Could not find article for "$word"');
-  }
-
-  final pluralHeading = findByExactText(doc, 'h2', 'Plural');
+  final pluralHeading = findByExactText(soup, 'h2', 'Plural');
   final pluralSection = pluralHeading?.parent;
-  if (pluralSection == null) {
-    throw StateError('Could not find plural section for "$word"');
-  }
 
-  final rows = pluralSection.querySelectorAll('tr');
   final pluralForms = <String>{};
-
-  for (final row in rows) {
-    final cells = row.querySelectorAll('td');
-    if (cells.length >= 2) {
-      final form = cells[1].text.trim();
-      pluralForms.add(cleanWord(form));
+  if (pluralSection != null) {
+    for (final row in pluralSection.querySelectorAll('tr')) {
+      final cells = row.querySelectorAll('td');
+      if (cells.length >= 2) {
+        pluralForms.add(cleanWord(cells[1].text.trim()));
+      }
     }
   }
 
-  return {'article': article, 'plural': pluralForms};
+  return {
+    'article': article,
+    'plural': pluralForms.isEmpty ? ['Plural not found'] : pluralForms.toList(),
+  };
 }
 
-// ---------- scrape_adjective ----------
-
-Map<String, dynamic> scrapeAdjective(Document doc, String word) {
-  final comparativeHeader = findByExactText(doc, 'span', 'comparative');
+Map<String, dynamic> scrapeAdjective(Document soup, String word) {
+  final comparativeHeader = findByExactText(soup, 'span', 'comparative');
   final comparativeTable = comparativeHeader?.parent?.parent;
-  if (comparativeTable == null) {
-    throw StateError('Could not find comparative table for "$word"');
-  }
-  final comparative = comparativeTable
-      .querySelectorAll('b')
-      .map((b) => b.text.trim())
-      .join();
 
-  final superlativeHeader = findByExactText(doc, 'span', 'superlative');
+  final comparative = comparativeTable != null
+      ? comparativeTable.querySelectorAll('b').map((b) => b.text.trim()).join()
+      : '';
+  final comparativeResult = comparative.isEmpty
+      ? 'Comparative not found'
+      : comparative;
+
+  final superlativeHeader = findByExactText(soup, 'span', 'superlative');
   final superlativeTable = superlativeHeader?.parent?.parent;
-  if (superlativeTable == null) {
-    throw StateError('Could not find superlative table for "$word"');
-  }
-  final superlative = superlativeTable
-      .querySelectorAll('b')
-      .map((b) => b.text.trim())
-      .join();
 
-  return {'comparative': comparative, 'superlative': superlative};
+  final superlative = superlativeTable != null
+      ? superlativeTable.querySelectorAll('b').map((b) => b.text.trim()).join()
+      : '';
+  final superlativeResult = superlative.isEmpty
+      ? 'Superlative not found'
+      : superlative;
+
+  return {'comparative': comparativeResult, 'superlative': superlativeResult};
 }
 
-// ---------- scrape_verb ----------
-
-Map<String, dynamic> scrapeVerb(Document doc, String word) {
+Map<String, dynamic> scrapeVerb(Document soup, String word) {
   // Infinitive
-  final infinitiveHeading = doc
+  final infinitiveHeading = soup
       .querySelectorAll('h2.wG')
       .where((h) => h.text.trim() == 'Infinitive')
       .firstOrNull;
   final infinitiveTable = infinitiveHeading?.parent;
   final infinitiveRaw = infinitiveTable?.querySelector('tr');
-  if (infinitiveRaw == null) {
-    throw StateError('Could not find infinitive for "$word"');
-  }
-  final infinitive = cleanWord(infinitiveRaw.text.trim());
+  final infinitive = infinitiveRaw != null
+      ? cleanWord(infinitiveRaw.text.trim())
+      : 'Infinitive not found';
 
   // Präteritum (Imperfect)
-  final prateritumHeading = findByExactText(doc, 'h3', 'Imperfect');
+  final prateritumHeading = findByExactText(soup, 'h3', 'Imperfect');
   final prateritumTable = prateritumHeading?.parent;
-  if (prateritumTable == null) {
-    throw StateError('Could not find imperfect table for "$word"');
-  }
-  final prateritumRaw = findTdByTrimmedText(prateritumTable, 'er');
-  if (prateritumRaw?.parent == null) {
-    throw StateError('Could not find imperfect form for "$word"');
-  }
-  final prateritum = cleanWord(prateritumRaw!.parent!.text.trim());
+  final prateritumRaw = prateritumTable != null
+      ? findTdByTrimmedText(prateritumTable, 'er')
+      : null;
+  final prateritum = prateritumRaw?.parent != null
+      ? cleanWord(prateritumRaw!.parent!.text.trim())
+      : 'Imperfect not found';
 
   // Perfect
-  final perfectHeading = findByExactText(doc, 'h3', 'Perfect');
+  final perfectHeading = findByExactText(soup, 'h3', 'Perfect');
   final perfectTable = perfectHeading?.parent;
-  if (perfectTable == null) {
-    throw StateError('Could not find perfect table for "$word"');
-  }
-  // Note: Python used string=" er" (leading space, untrimmed) here,
-  // unlike the lambda-trimmed check above — preserved as-is below.
   final perfectRaw = perfectTable
-      .querySelectorAll('td')
+      ?.querySelectorAll('td')
       .where((td) => td.text == ' er')
       .firstOrNull;
-  if (perfectRaw?.parent == null) {
-    throw StateError('Could not find perfect form for "$word"');
-  }
-  final perfect = cleanWord(perfectRaw!.parent!.text.trim());
+  final perfect = perfectRaw?.parent != null
+      ? cleanWord(perfectRaw!.parent!.text.trim())
+      : 'Perfect not found';
 
   return {
     'infinitive': infinitive,
@@ -160,64 +160,73 @@ Map<String, dynamic> scrapeVerb(Document doc, String word) {
   };
 }
 
-Future<Map<String, dynamic>> scrapeWord(String word) async {
-  final url = Uri.parse('https://www.verbformen.com/?w=$word');
-  final response = await http.get(url);
+// ---------- scrape_info ----------
 
-  final document = html_parser.parse(response.body);
-  final translationsEl = document.querySelector('span[lang="en"]');
+Map<String, dynamic>? scrapeInfo(String word, Document soup, dynamic info) {
+  // `info` mirrors Python's dynamic typing: sometimes a specific <div>,
+  // sometimes the whole `soup` document itself (the woerter.net fallback).
+  // Both Element and Document support querySelector/querySelectorAll in
+  // package:html, so we type it dynamic and call through duck-typing.
+
+  final translationsEl = soup.querySelector('span[lang="en"]');
+  final List<String> translationList;
   if (translationsEl == null) {
-    return {};
+    translationList = ['No translation found.'];
+  } else {
+    translationList = translationsEl.text
+        .trim()
+        .split(',')
+        .map((t) => t.trim())
+        .toList();
   }
 
-  final translationList = translationsEl.text
-      .trim()
-      .split(',')
-      .map((t) => t.trim())
-      .toList();
+  String germanSentence = 'Sentence not found.';
+  String englishSentence = 'Sentence not found.';
 
-  final info = document.querySelector('div.rInfo');
-  if (info == null) return {};
+  final sentenceSoup = info.querySelector('ul.rLst.rLstGt') as Element?;
 
-  final sentenceList = info.querySelector('ul.rLst.rLstGt');
-  if (sentenceList == null) return {};
+  if (sentenceSoup != null) {
+    final sentenceRows = sentenceSoup.querySelectorAll('li');
+    if (sentenceRows.isNotEmpty) {
+      final sentence = sentenceRows[0];
+      final br = sentence.querySelector('br');
 
-  final sentenceRows = sentenceList.querySelectorAll('li');
-  if (sentenceRows.isEmpty) return {};
-  final sentence = sentenceRows[0];
+      if (br != null) {
+        final siblings = br.parentNode!.nodes;
+        final brIndex = siblings.indexOf(br);
+        final beforeBr = siblings.sublist(0, brIndex);
+        final previousSiblings = beforeBr.reversed;
 
-  final br = sentence.querySelector('br');
-  if (br == null) return {};
+        final germanParts = <String>[];
+        for (final node in previousSiblings) {
+          if (node is Element && node.localName == 'a') continue;
+          germanParts.add(node.text?.trim() ?? '');
+        }
 
-  final siblings = br.parentNode!.nodes;
-  final brIndex = siblings.indexOf(br);
-  final beforeBr = siblings.sublist(0, brIndex);
-  final previousSiblings = beforeBr.reversed;
+        germanSentence = germanParts.reversed.join(' ').trim();
+        for (final punctuation in ['.', ',', '!', '?', ':', ';']) {
+          germanSentence = germanSentence.replaceAll(
+            ' $punctuation',
+            punctuation,
+          );
+        }
 
-  final germanParts = <String>[];
-  for (final node in previousSiblings) {
-    if (node is Element && node.localName == 'a') {
-      continue;
+        final englishImage = sentence.querySelector('img[alt="English"]');
+        if (englishImage?.parent != null) {
+          englishSentence = englishImage!.parent!.text.trim();
+        }
+      }
     }
-
-    germanParts.add(node.text?.trim() ?? '');
   }
 
-  var germanSentence = germanParts.reversed.join(' ').trim();
-
-  for (final punctuation in ['.', ',', '!', '?', ':', ';']) {
-    germanSentence = germanSentence.replaceAll(' $punctuation', punctuation);
-  }
-
-  final englishImage = sentence.querySelector('img[alt="English"]');
-  if (englishImage?.parent == null) return {};
-  final englishSentence = englishImage!.parent!.text.trim();
-
-  final nounHeader = document.querySelector('span[title="noun"]');
-  final adjectiveHeader = document.querySelector('span[title="adjective"]');
-  final verbHeader = document
-      .querySelectorAll('h1')
-      .where((h) => h.text.contains('Conjugation of German verb'));
+  final nounHeader = soup.querySelector('span[title="noun"]');
+  final adjectiveHeader = soup.querySelector('span[title="adjective"]');
+  final adverbHeader = soup.querySelector('span[title="adverb"]');
+  final prepositionHeader = soup.querySelector('span[title="preposition"]');
+  final conjunctionHeader = soup.querySelector('span[title="conjunction"]');
+  final particleHeader = soup.querySelector('span[title="particle"]');
+  final isSein = _infoParagraphEndsWith(soup, 'sein');
+  final isHaben = _infoParagraphEndsWith(soup, 'haben');
 
   final commonData = {
     'word': word,
@@ -227,16 +236,154 @@ Future<Map<String, dynamic>> scrapeWord(String word) async {
   };
 
   if (nounHeader != null) {
-    final nounInfo = scrapeNoun(document, word);
-    nounInfo['plural'] = (nounInfo['plural'] as Set<String>).toList();
+    final nounInfo = scrapeNoun(soup, word);
     return {...commonData, ...nounInfo, 'type': 'noun'};
   } else if (adjectiveHeader != null) {
-    final adjectiveInfo = scrapeAdjective(document, word);
-    return {...commonData, ...adjectiveInfo, 'type': 'adjective'};
-  } else if (verbHeader.isNotEmpty) {
-    final verbInfo = scrapeVerb(document, word);
-    return {...commonData, ...verbInfo, 'type': 'verb'};
+    return {...commonData, ...scrapeAdjective(soup, word), 'type': 'adjective'};
+  } else if (isSein) {
+    return {...commonData, ...scrapeVerb(soup, word), 'type': 'sein'};
+  } else if (isHaben) {
+    return {...commonData, ...scrapeVerb(soup, word), 'type': 'haben'};
+  } else if (adverbHeader != null) {
+    return {...commonData, 'type': 'adverb'};
+  } else if (prepositionHeader != null) {
+    return {...commonData, 'type': 'preposition'};
+  } else if (conjunctionHeader != null) {
+    return {...commonData, 'type': 'conjunction'};
+  } else if (particleHeader != null) {
+    return {...commonData, 'type': 'particle'};
   } else {
-    return {};
+    return null;
   }
+}
+
+// ---------- scrape_word (main entry point) ----------
+
+Future<List<Map<String, dynamic>>> scrapeWord(String word) async {
+  final urlWord = urlFriendly(word); // used only for building request URLs
+  final resultList = <Map<String, dynamic>>[];
+  final url = 'https://www.verbformen.com/?w=$urlWord';
+
+  var response = await http
+      .get(Uri.parse(url))
+      .timeout(const Duration(seconds: 15));
+
+  print('REQUEST: $url');
+  print('STATUS: ${response.statusCode}');
+
+  if (response.statusCode == 429) {
+    print('Rate limited: $url');
+    print('Retry-After: ${response.headers['retry-after']}');
+    return [];
+  }
+
+  if (response.statusCode != 200) {
+    print('Request failed (${response.statusCode}): $url');
+    return [];
+  }
+
+  await Future.delayed(const Duration(seconds: 3));
+
+  var soup = html_parser.parse(response.body);
+
+  dynamic info = soup.querySelector('div.rInfo');
+
+  if (info == null) {
+    final searchResult = soup.querySelector('.bTrf.rClear');
+    if (searchResult == null) {
+      print('No word matches the search.');
+      return [];
+    } else {
+      final fallbackUrl = 'https://www.woerter.net/?w=$urlWord';
+      // verify=False in Python -> use the insecure client here
+      response = await _insecureClient
+          .get(Uri.parse(fallbackUrl))
+          .timeout(const Duration(seconds: 15));
+      soup = html_parser.parse(response.body);
+      info = soup; // Python assigns info = soup in this branch
+    }
+  }
+
+  final result = scrapeInfo(word, soup, info);
+  if (result != null) {
+    resultList.add(result);
+  }
+
+  final wordTypes = <String>[];
+  final typesAll = soup.querySelectorAll('.rKnpf.rNoSelect.rLinks');
+  for (final wordTypeEl in typesAll) {
+    final selected = wordTypeEl.querySelector('img[src="/selected.svg"]');
+    if (selected == null) {
+      final typeTextEl = wordTypeEl.querySelector('.rKln.rInf');
+      final typeText = typeTextEl?.text.trim();
+      if (typeText != null) wordTypes.add(typeText);
+    }
+  }
+
+  if (wordTypes.isEmpty) {
+    return resultList;
+  }
+
+  for (final wordType in wordTypes) {
+    String typeUrl;
+
+    if (wordType == 'sein') {
+      typeUrl = 'https://www.verbformen.com/conjugation/${urlWord}_ist.htm';
+    } else if (wordType == 'haben') {
+      typeUrl = 'https://www.verbformen.com/conjugation/${urlWord}_hat.htm';
+    } else if (wordType == 'noun' ||
+        wordType == 'neutral' ||
+        wordType == 'feminine' ||
+        wordType == 'masculine') {
+      typeUrl = 'https://www.verbformen.com/declension/nouns/$urlWord.htm';
+    } else if (wordType == 'positive') {
+      typeUrl = 'https://www.verbformen.com/declension/adjectives/$urlWord.htm';
+    } else if (wordType == 'comparative' || wordType == 'superlative') {
+      continue;
+    } else {
+      typeUrl = 'https://www.woerter.net/${wordType}s/$urlWord.htm';
+    }
+
+    print('\n--- REQUEST $wordType ---');
+    print(typeUrl);
+
+    await Future.delayed(const Duration(seconds: 3));
+
+    // verify=False for all of these follow-up requests too
+    final typeResponse = await _insecureClient
+        .get(Uri.parse(typeUrl))
+        .timeout(const Duration(seconds: 15));
+
+    print('STATUS: ${typeResponse.statusCode}');
+
+    if (typeResponse.statusCode == 429) {
+      print('Rate limited: $typeUrl');
+      continue;
+    }
+
+    if (typeResponse.statusCode != 200) {
+      print('Request failed (${typeResponse.statusCode}): $typeUrl');
+      continue;
+    }
+
+    final typeSoup = html_parser.parse(typeResponse.body);
+    print('Parsed typeSoup for $wordType');
+
+    dynamic typeInfo;
+
+    if (typeUrl.contains('verbformen.com')) {
+      typeInfo = typeSoup.querySelector('div.rInfo');
+    } else if (typeUrl.contains('woerter.net')) {
+      typeInfo = typeSoup;
+    }
+    print('typeInfo resolved for $wordType: ${typeInfo != null}');
+
+    final typeResult = scrapeInfo(word, typeSoup, typeInfo);
+    print('scrapeInfo completed for $wordType: ${typeResult != null}');
+    if (typeResult != null) {
+      resultList.add(typeResult);
+    }
+  }
+  print('Finished loop, returning ${resultList.length} results');
+  return resultList;
 }
