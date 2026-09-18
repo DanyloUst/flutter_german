@@ -14,15 +14,15 @@ class OutputScreen extends StatefulWidget {
 
 class OutputScreenState extends State<OutputScreen> {
   List<String> definitions = [];
-  late String selectedValue;
+  late String currentlySelectedTranslation;
   bool isLoading = false;
   late WordResponse selectedWord;
 
   @override
   void initState() {
     selectedWord = widget.scrapedData.wordResponses[0];
-    selectedValue = selectedWord.translations.first;
-    getDefinitions(selectedValue);
+    currentlySelectedTranslation = selectedWord.translations.first;
+    getDefinitions(currentlySelectedTranslation);
     super.initState();
   }
 
@@ -50,9 +50,9 @@ class OutputScreenState extends State<OutputScreen> {
 
     final originalSentence = widget.scrapedData.originalSentence;
     final translatedSentence = widget.scrapedData.translatedSentence;
-    String? originalBlank = originalSentence;
+    String originalBlank = originalSentence;
 
-    if (originalSentence != null) {
+    if (originalSentence.isNotEmpty) {
       for (final word in originalSentence.split(' ')) {
         if (word.contains(response.word)) {
           originalBlank = originalSentence.replaceAll(word, '_' * word.length);
@@ -125,7 +125,7 @@ class OutputScreenState extends State<OutputScreen> {
                 isCopyAll: false,
                 isLoading: isLoading,
               ),
-              originalSentence != null
+              originalSentence.isNotEmpty
                   ? TextCard(
                       title: 'Your sentence (German)',
                       content: originalSentence,
@@ -137,7 +137,7 @@ class OutputScreenState extends State<OutputScreen> {
                       content: translatedSentence,
                     )
                   : SizedBox.shrink(),
-              originalBlank != null
+              originalBlank.isNotEmpty
                   ? TextCard(
                       title: 'Your sentence (With a blank)',
                       content: originalBlank,
@@ -226,7 +226,7 @@ class DropdownCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    String selectedValue = entries.isNotEmpty ? entries[0] : '';
+    String currentlySelectedValue = entries.isNotEmpty ? entries[0] : '';
     return Card(
       child: Padding(
         padding: const EdgeInsetsDirectional.only(
@@ -259,11 +259,15 @@ class DropdownCard extends StatelessWidget {
                                 ),
                               )
                               .toList(),
-                          initialValue: selectedValue,
+                          initialValue: currentlySelectedValue,
                           onChanged: (value) {
-                            selectedValue = value!;
-                            if (isCopyAll) {
-                              onChanged!(selectedValue);
+                            print('VALUE --- $value');
+                            print('CURRENTLY SELECTED --- $currentlySelectedValue');
+                            if (currentlySelectedValue != value) {
+                              currentlySelectedValue = value!;
+                              if (isCopyAll) {
+                                onChanged!(currentlySelectedValue);
+                              }
                             }
                           },
                           decoration: InputDecoration(
@@ -300,7 +304,7 @@ class DropdownCard extends StatelessWidget {
                 const SizedBox(width: 10),
                 InkWell(
                   onTap: () async {
-                    copyToClip(context, selectedValue);
+                    copyToClip(context, currentlySelectedValue);
                   },
                   child: Icon(Icons.copy, size: 18),
                 ),

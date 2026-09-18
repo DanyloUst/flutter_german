@@ -109,7 +109,11 @@ class InputScreenState extends State<InputScreen> {
 
     try {
       final result = await ApiService.getWordsDart(word);
-      final translated = await ApiService.translateShitty(sentence);
+      String? translated;
+      if (sentence.isNotEmpty) {
+        translated = await ApiService.translateShitty(sentence);
+      }
+
       scrapedData = ScrapedData(
         wordResponses: result,
         originalSentence: sentence,

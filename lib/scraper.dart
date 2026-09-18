@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:io';
+import 'package:flutter_german/models/api_exception.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/io_client.dart';
 import 'package:html/parser.dart' as html_parser;
@@ -235,6 +236,7 @@ Map<String, dynamic>? scrapeInfo(String word, Document soup, dynamic info) {
     'english_sentence': englishSentence,
   };
 
+  //Currently returns nothign for articles
   if (nounHeader != null) {
     final nounInfo = scrapeNoun(soup, word);
     return {...commonData, ...nounInfo, 'type': 'noun'};
@@ -291,8 +293,7 @@ Future<List<Map<String, dynamic>>> scrapeWord(String word) async {
   if (info == null) {
     final searchResult = soup.querySelector('.bTrf.rClear');
     if (searchResult == null) {
-      print('No word matches the search.');
-      return [];
+      throw ApiException('No word matches $word. Check the spelling and try again.');
     } else {
       final fallbackUrl = 'https://www.woerter.net/?w=$urlWord';
       // verify=False in Python -> use the insecure client here
@@ -324,13 +325,30 @@ Future<List<Map<String, dynamic>>> scrapeWord(String word) async {
     return resultList;
   }
 
+  
+  String getInfinitive(){
+    final infinitiveHeading = soup
+      .querySelectorAll('h2.wG')
+      .where((h) => h.text.trim() == 'Infinitive')
+      .firstOrNull;
+  final infinitiveTable = infinitiveHeading?.parent;
+  final infinitiveRaw = infinitiveTable?.querySelector('tr');
+  final infinitive = infinitiveRaw != null
+      ? cleanWord(infinitiveRaw.text.trim())
+      : 'Infinitive not found';
+
+  return infinitive;
+  }
+
   for (final wordType in wordTypes) {
     String typeUrl;
 
     if (wordType == 'sein') {
-      typeUrl = 'https://www.verbformen.com/conjugation/${urlWord}_ist.htm';
+      final urlInfinitive = getInfinitive();
+      typeUrl = 'https://www.verbformen.com/conjugation/${urlInfinitive}_ist.htm';
     } else if (wordType == 'haben') {
-      typeUrl = 'https://www.verbformen.com/conjugation/${urlWord}_hat.htm';
+      final urlInfinitive = getInfinitive();
+      typeUrl = 'https://www.verbformen.com/conjugation/${urlInfinitive}_hat.htm';
     } else if (wordType == 'noun' ||
         wordType == 'neutral' ||
         wordType == 'feminine' ||

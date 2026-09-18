@@ -29,7 +29,7 @@ class WordResponse {
       englishSentence: json['english_sentence'],
       type: json['type'],
       nounData: json['type'] == 'noun' ? NounData.fromJson(json) : null,
-      verbData: json['type'] == 'verb' ? VerbData.fromJson(json) : null,
+      verbData: json['type'] == 'sein' || json['type'] == 'haben' ? VerbData.fromJson(json) : null,
       adjectiveData: json['type'] == 'adjective' ? AdjectiveData.fromJson(json) : null,
     );
   }
@@ -82,8 +82,8 @@ class AdjectiveData {
 
 class ScrapedData{
   final List<WordResponse> wordResponses;
-  final String? originalSentence;
+  final String originalSentence;
   final String? translatedSentence;
 
-  ScrapedData({required this.wordResponses, this.originalSentence, this.translatedSentence});
+  ScrapedData({required this.wordResponses, required this.originalSentence, this.translatedSentence});
 }
