@@ -276,12 +276,12 @@ Future<List<Map<String, dynamic>>> scrapeWord(String word) async {
   if (response.statusCode == 429) {
     print('Rate limited: $url');
     print('Retry-After: ${response.headers['retry-after']}');
-    return [];
+    throw ApiException('Too many requests, rate limit reached. Try again later');
   }
 
   if (response.statusCode != 200) {
     print('Request failed (${response.statusCode}): $url');
-    return [];
+    throw ApiException('Request failed.');
   }
 
   await Future.delayed(const Duration(seconds: 3));

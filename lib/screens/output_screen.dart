@@ -14,15 +14,15 @@ class OutputScreen extends StatefulWidget {
 
 class OutputScreenState extends State<OutputScreen> {
   List<String> definitions = [];
-  late String currentlySelectedTranslation;
+  late String selectedValue;
   bool isLoading = false;
   late WordResponse selectedWord;
 
   @override
   void initState() {
     selectedWord = widget.scrapedData.wordResponses[0];
-    currentlySelectedTranslation = selectedWord.translations.first;
-    getDefinitions(currentlySelectedTranslation);
+    selectedValue = selectedWord.translations.first;
+    getDefinitions(selectedValue);
     super.initState();
   }
 
@@ -78,23 +78,26 @@ class OutputScreenState extends State<OutputScreen> {
                           selectedWord = response;
                         });
                       },
-                      child: Padding(
-                        padding: EdgeInsetsGeometry.directional(
-                          top: 5,
-                          start: 5,
-                          end: 5,
-                          bottom: 10,
-                        ),
-                        child: Row(
-                          children: [
-                            Icon(
-                              isSelected
-                                  ? Icons.radio_button_checked
-                                  : Icons.radio_button_off,
-                            ),
-                            SizedBox(width: 5),
-                            Text(response.type),
-                          ],
+                      child: Card(
+                        color: AppColors.primaryCard,
+                        child: Padding(
+                          padding: EdgeInsetsGeometry.directional(
+                            top: 7,
+                            start: 5,
+                            end: 5,
+                            bottom: 7,
+                          ),
+                          child: Row(
+                            children: [
+                              Icon(
+                                isSelected
+                                    ? Icons.radio_button_checked
+                                    : Icons.radio_button_off,
+                              ),
+                              SizedBox(width: 5),
+                              Text(response.type),
+                            ],
+                          ),
                         ),
                       ),
                     ),
@@ -209,12 +212,13 @@ class TextCard extends StatelessWidget {
   }
 }
 
-class DropdownCard extends StatelessWidget {
+class DropdownCard extends StatefulWidget {
   final String title;
   final List<String> entries;
   final ValueChanged<String>? onChanged;
   final bool isCopyAll;
   final bool isLoading;
+
   const DropdownCard({
     super.key,
     required this.title,
@@ -225,8 +229,31 @@ class DropdownCard extends StatelessWidget {
   });
 
   @override
+  State<DropdownCard> createState() => _DropdownCardState();
+}
+
+class _DropdownCardState extends State<DropdownCard> {
+  late String selectedValue;
+
+  @override
+  void initState() {
+    super.initState();
+    selectedValue = widget.entries.isNotEmpty ? widget.entries[0] : '';
+  }
+
+  @override
+  void didUpdateWidget(covariant DropdownCard oldWidget) {
+    super.didUpdateWidget(oldWidget);
+
+    if (widget.entries != oldWidget.entries) {
+      setState(() {
+        selectedValue = widget.entries.isNotEmpty ? widget.entries[0] : '';
+      });
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
-    String currentlySelectedValue = entries.isNotEmpty ? entries[0] : '';
     return Card(
       child: Padding(
         padding: const EdgeInsetsDirectional.only(
@@ -238,16 +265,26 @@ class DropdownCard extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(title, style: TextStyle(color: AppColors.secondaryText)),
+            Text(
+              widget.title,
+              style: TextStyle(color: AppColors.secondaryText),
+            ),
             SizedBox(height: 5),
             Row(
               children: [
-                isLoading
+                widget.isLoading
                     ? Center(child: CircularProgressIndicator())
+                    : widget.entries.isEmpty
+                    ? Expanded(
+                        child: Text(
+                          'Nothing found',
+                          style: TextStyle(color: AppColors.secondaryText),
+                        ),
+                      )
                     : Expanded(
                         child: DropdownButtonFormField<String>(
                           isExpanded: true,
-                          items: entries
+                          items: widget.entries
                               .map(
                                 (entry) => DropdownMenuItem<String>(
                                   value: entry,
@@ -259,15 +296,18 @@ class DropdownCard extends StatelessWidget {
                                 ),
                               )
                               .toList(),
-                          initialValue: currentlySelectedValue,
+                          initialValue: selectedValue,
                           onChanged: (value) {
-                            print('VALUE --- $value');
-                            print('CURRENTLY SELECTED --- $currentlySelectedValue');
-                            if (currentlySelectedValue != value) {
-                              currentlySelectedValue = value!;
-                              if (isCopyAll) {
-                                onChanged!(currentlySelectedValue);
-                              }
+                            if (value == null || value == selectedValue) {
+                              return; // no real change -> skip lookup entirely
+                            }
+
+                            setState(() {
+                              selectedValue = value;
+                            });
+
+                            if (widget.isCopyAll) {
+                              widget.onChanged!(selectedValue);
                             }
                           },
                           decoration: InputDecoration(
@@ -304,21 +344,22 @@ class DropdownCard extends StatelessWidget {
                 const SizedBox(width: 10),
                 InkWell(
                   onTap: () async {
-                    copyToClip(context, currentlySelectedValue);
+                    if (widget.entries.isNotEmpty)
+                      copyToClip(context, selectedValue);
                   },
                   child: Icon(Icons.copy, size: 18),
                 ),
               ],
             ),
 
-            isCopyAll ? const SizedBox(height: 5) : SizedBox.shrink(),
+            widget.isCopyAll ? const SizedBox(height: 5) : SizedBox.shrink(),
 
-            isCopyAll
+            widget.isCopyAll
                 ? SizedBox(
                     width: double.infinity,
                     child: ElevatedButton(
                       onPressed: () async {
-                        copyToClip(context, entries.join(', '));
+                        copyToClip(context, widget.entries.join(', '));
                       },
                       child: const Row(
                         mainAxisAlignment: MainAxisAlignment.center,

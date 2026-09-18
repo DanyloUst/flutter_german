@@ -23,17 +23,6 @@ class InputScreenState extends State<InputScreen> {
     return Scaffold(
       appBar: AppBar(
         title: Text("German Scrapper"),
-        actions: [
-          TextButton(
-            onPressed: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(builder: (context) => DebugScreen()),
-              );
-            },
-            child: Text('TEST'),
-          ),
-        ],
       ),
       body: Padding(
         padding: EdgeInsetsGeometry.symmetric(horizontal: 15, vertical: 15),
@@ -131,9 +120,8 @@ class InputScreenState extends State<InputScreen> {
         ),
       );
     } on ApiException catch (e) {
-      print('API EXCEPTION: ${e.message}');
+      showErrorDialog(e.message);
       setState(() {
-        errorMessage = e.message;
         isLoading = false;
       });
     } catch (e, stackTrace) {
@@ -144,6 +132,26 @@ class InputScreenState extends State<InputScreen> {
         isLoading = false;
       });
     }
+  }
+
+  void showErrorDialog(String errorMessage) {
+    showDialog(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: Text('Error'),
+          content: Text(errorMessage),
+          actions: [
+            TextButton(
+              onPressed: () {
+                Navigator.of(context).pop();
+              },
+              child: Text('OK'),
+            ),
+          ],
+        );
+      },
+    );
   }
 }
 

@@ -47,7 +47,7 @@ class ApiService {
     final results = await scrapeWord(word);
 
     if (results.isEmpty) {
-      throw Exception('Failed to get word');
+      throw ApiException('No results found for $word');
     }
 
     return results.map((data) => WordResponse.fromJson(data)).toList();
@@ -57,11 +57,16 @@ class ApiService {
     String word,
     String wordType,
   ) async {
-    if(wordType == 'sein' || wordType == 'haben'){
+    if (wordType == 'sein' || wordType == 'haben') {
       wordType = 'verb';
-    } 
+    }
+
     final url = Uri.parse('https://www.dictionary.com/browse/$word');
     final response = await http.get(url);
+
+    if (response.statusCode != 200) {
+      return ['No definitions found'];
+    }
 
     final document = html_parser.parse(response.body);
 
@@ -70,14 +75,12 @@ class ApiService {
     final definitions = <String>[];
 
     for (final header in headersOfType) {
-      // header.parent.parent
       final parent = header.parent?.parent;
       if (parent == null) continue;
 
       final listDefinitions = parent.querySelectorAll('li.item-definition');
 
       for (final definition in listDefinitions) {
-        // em.decompose() -- remove the <em> element from the tree entirely
         final em = definition.querySelector('em');
         em?.remove();
 
@@ -85,7 +88,7 @@ class ApiService {
       }
     }
 
-    return definitions;
+    return definitions.isEmpty ? ['No definitions found'] : definitions;
   }
 
   static Future<String> translateShitty(
