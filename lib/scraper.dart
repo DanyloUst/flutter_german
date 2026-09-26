@@ -102,12 +102,16 @@ Element? findTdByTrimmedText(Element scope, String text) {
   return null;
 }
 
-bool _infoParagraphEndsWith(Document soup, String suffix) {
+bool _infoParagraphHasSegment(Document soup, String target) {
   final infoP = soup.querySelector('p.rInf');
   if (infoP == null) return false;
-  return infoP.text.trim().toLowerCase().endsWith(suffix.toLowerCase());
-}
 
+  final segments = infoP.text
+      .split('·')
+      .map((s) => s.trim().toLowerCase());
+
+  return segments.contains(target.toLowerCase());
+}
 // ---------- scrape_noun / scrape_adjective / scrape_verb ----------
 
 Map<String, dynamic> scrapeNoun(Document soup, String word) {
@@ -265,8 +269,8 @@ Map<String, dynamic>? scrapeInfo(String word, Document soup, dynamic info) {
   final prepositionHeader = soup.querySelector('span[title="preposition"]');
   final conjunctionHeader = soup.querySelector('span[title="conjunction"]');
   final particleHeader = soup.querySelector('span[title="particle"]');
-  final isSein = _infoParagraphEndsWith(soup, 'sein');
-  final isHaben = _infoParagraphEndsWith(soup, 'haben');
+  final isSein = _infoParagraphHasSegment(soup, 'sein');
+  final isHaben = _infoParagraphHasSegment(soup, 'haben');
 
   final commonData = {
     'word': word,
@@ -274,6 +278,10 @@ Map<String, dynamic>? scrapeInfo(String word, Document soup, dynamic info) {
     'german_sentence': germanSentence,
     'english_sentence': englishSentence,
   };
+
+  print(isHaben);
+  print(isSein);
+
 
   //Currently returns nothign for articles
   if (nounHeader != null) {
@@ -449,3 +457,4 @@ Future<List<Map<String, dynamic>>> scrapeWord(String word) async {
   print('Finished loop, returning ${resultList.length} results');
   return resultList;
 }
+
