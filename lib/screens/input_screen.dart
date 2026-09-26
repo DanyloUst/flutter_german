@@ -1,7 +1,11 @@
+import 'dart:typed_data';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_german/api_service.dart';
 import 'package:flutter_german/models/api_exception.dart';
 import 'package:flutter_german/models/word_response.dart';
+import 'package:flutter_german/scraper.dart';
+import 'package:http/http.dart' as http;
 import 'package:flutter_german/screens/debug_screen.dart';
 import 'package:flutter_german/screens/output_screen.dart';
 
@@ -21,9 +25,7 @@ class InputScreenState extends State<InputScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: Text("German Scrapper"),
-      ),
+      appBar: AppBar(title: Text("German Scrapper")),
       body: Padding(
         padding: EdgeInsetsGeometry.symmetric(horizontal: 15, vertical: 15),
         child: Column(
@@ -96,6 +98,22 @@ class InputScreenState extends State<InputScreen> {
       //return; sentence isnt required
     }
 
+    String? pronunciationUrl;
+    Uint8List? pronunciationBytes;
+    try {
+      pronunciationUrl = await getPronunciationUrl(word);
+      if (pronunciationUrl != null) {
+        final response = await http.get(Uri.parse(pronunciationUrl));
+        if (response.statusCode == 200) {
+          pronunciationBytes = response.bodyBytes;
+        }
+      }
+    } catch (e) {
+      print('Pronunciation lookup/download failed: $e');
+      pronunciationUrl = null;
+      pronunciationBytes = null;
+    }
+
     try {
       final result = await ApiService.getWordsDart(word);
       String? translated;
@@ -107,6 +125,8 @@ class InputScreenState extends State<InputScreen> {
         wordResponses: result,
         originalSentence: sentence,
         translatedSentence: translated,
+        pronunciationUrl: pronunciationUrl,
+        pronunciationBytes: pronunciationBytes,
       );
       setState(() {
         isLoading = false;

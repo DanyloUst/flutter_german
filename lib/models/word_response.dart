@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:typed_data';
 
 class WordResponse {
   final String word;
@@ -84,6 +85,9 @@ class ScrapedData{
   final List<WordResponse> wordResponses;
   final String originalSentence;
   final String? translatedSentence;
+  final String? pronunciationUrl;
+  final Uint8List? pronunciationBytes;
 
-  ScrapedData({required this.wordResponses, required this.originalSentence, this.translatedSentence});
+
+  ScrapedData({required this.wordResponses, required this.originalSentence, this.translatedSentence, this.pronunciationUrl, this.pronunciationBytes});
 }

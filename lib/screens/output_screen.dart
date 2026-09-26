@@ -1,8 +1,16 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_german/api_service.dart';
 import 'package:flutter_german/app_colors.dart';
 import 'package:flutter_german/models/word_response.dart';
+import 'package:flutter_german/scraper.dart';
+import 'package:file_saver/file_saver.dart';
+import 'package:http/http.dart' as http;
+import 'package:just_audio/just_audio.dart';
+import 'package:file_picker/file_picker.dart';
+import 'package:path_provider/path_provider.dart';
 
 class OutputScreen extends StatefulWidget {
   final ScrapedData scrapedData;
@@ -153,6 +161,10 @@ class OutputScreenState extends State<OutputScreen> {
               TextCard(
                 title: 'Another sentence (Translation)',
                 content: response.englishSentence,
+              ),
+              PronunciationCard(
+                pronunciationBytes: widget.scrapedData.pronunciationBytes,
+                word: response.word,
               ),
               SizedBox(height: 50),
             ],
@@ -585,4 +597,189 @@ void copyToClip(BuildContext context, String content) async {
       content: Text('Copied to clipboard!'),
     ),
   );
+}
+
+class PronunciationCard extends StatefulWidget {
+  final Uint8List? pronunciationBytes;
+  final String word;
+  const PronunciationCard({
+    super.key,
+    required this.pronunciationBytes,
+    required this.word,
+  });
+
+  @override
+  State<PronunciationCard> createState() => _PronunciationCardState();
+}
+
+class _PronunciationCardState extends State<PronunciationCard> {
+  late final AudioPlayer _player;
+  bool _isPlaying = false;
+  bool _isSaving = false;
+  String? _tempFilePath;
+
+  @override
+  void initState() {
+    super.initState();
+    _player = AudioPlayer();
+    _writeTempFile();
+  }
+
+  Future<void> _writeTempFile() async {
+    if (widget.pronunciationBytes == null) return;
+
+    final dir = await getTemporaryDirectory();
+    final file = File('${dir.path}/pronunciation_temp.ogg');
+    await file.writeAsBytes(widget.pronunciationBytes!);
+    _tempFilePath = file.path;
+  }
+
+  @override
+  void dispose() {
+    _player.dispose();
+    super.dispose();
+  }
+
+  Future<void> _play() async {
+    if (_tempFilePath == null) return;
+
+    setState(() => _isPlaying = true);
+    try {
+      await _player.setFilePath(_tempFilePath!);
+      await _player.play();
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Could not play pronunciation')),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _isPlaying = false);
+    }
+  }
+
+  Future<void> _stop() async {
+    try {
+      await _player.stop();
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Could not stop playback')),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _isPlaying = false);
+    }
+  }
+
+  Future<void> _save() async {
+    if (widget.pronunciationBytes == null) return;
+
+    setState(() => _isSaving = true);
+    try {
+      final outputFile = await FilePicker.saveFile(
+        bytes: widget.pronunciationBytes!,
+        dialogTitle: 'Save pronunciation',
+        fileName: 'pronunciation_${widget.word}.ogg',
+      );
+
+      if (outputFile != null) {
+        if (mounted) {
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(const SnackBar(content: Text('Saved')));
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Could not save pronunciation')),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _isSaving = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final isAvailable = widget.pronunciationBytes != null;
+
+    return Card(
+      child: Padding(
+        padding: const EdgeInsetsDirectional.only(
+          start: 15,
+          end: 10,
+          bottom: 10,
+          top: 7,
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Pronunciation',
+              style: TextStyle(color: AppColors.secondaryText),
+            ),
+            SizedBox(height: 5),
+            Card(
+              color: AppColors.secondaryCard,
+              child: Padding(
+                padding: EdgeInsetsGeometry.directional(
+                  top: 7,
+                  bottom: 7,
+                  start: 12,
+                  end: 12,
+                ),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: isAvailable
+                          ? Icon(
+                              Icons.graphic_eq,
+                              size: 32,
+                              color: AppColors.secondaryText,
+                            )
+                          : Text(
+                              'Pronunciation not found',
+                              style: TextStyle(color: AppColors.secondaryText),
+                            ),
+                    ),
+                    IconButton(
+                      icon: _isPlaying
+                          ? const Icon(Icons.stop_rounded, size: 26)
+                          : const Icon(Icons.play_arrow, size: 26),
+                      onPressed: isAvailable
+                          ? (_isPlaying ? _stop : _play)
+                          : null,
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            const SizedBox(height: 5),
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton(
+                onPressed: isAvailable && !_isSaving ? _save : null,
+                child: _isSaving
+                    ? const SizedBox(
+                        width: 20,
+                        height: 20,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : const Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Text('Download'),
+                          SizedBox(width: 5),
+                          Icon(Icons.download),
+                        ],
+                      ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
 }

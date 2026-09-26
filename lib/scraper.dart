@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 import 'dart:io';
 import 'package:flutter_german/models/api_exception.dart';
 import 'package:http/http.dart' as http;
@@ -458,3 +459,61 @@ Future<List<Map<String, dynamic>>> scrapeWord(String word) async {
   return resultList;
 }
 
+Future<String?> _fetchWiktionaryWikitext(String word) async {
+  final url = Uri.parse(
+    'https://de.wiktionary.org/w/api.php'
+    '?action=parse&page=$word&prop=wikitext&format=json',
+  );
+
+  final response = await http.get(url);
+  if (response.statusCode != 200) return null;
+
+  final data = jsonDecode(response.body);
+
+  // If the page doesn't exist, the API returns an "error" key instead
+  // of "parse" -- this is the API's way of saying "no such page."
+  if (data['error'] != null) return null;
+
+  return data['parse']?['wikitext']?['*'] as String?;
+}
+
+String? _extractAudioFilename(String wikitext) {
+  // Matches: {{Audio|De-SomeWord.ogg| ... }}
+  // Captures just the filename between "Audio|" and the next "|" or "}}"
+  final match = RegExp(r'\{\{Audio\|([^|}]+\.ogg)').firstMatch(wikitext);
+  return match?.group(1);
+}
+
+Future<String?> _fetchCommonsFileUrl(String filename) async {
+  final url = Uri.parse(
+    'https://commons.wikimedia.org/w/api.php'
+    '?action=query&titles=File:$filename&prop=imageinfo&iiprop=url&format=json',
+  );
+
+  final response = await http.get(url);
+  if (response.statusCode != 200) return null;
+
+  final data = jsonDecode(response.body);
+
+  // The API nests results under a numeric "pageid" we don't know in
+  // advance, so we grab whatever the first (and only) value under
+  // "pages" is, regardless of its key.
+  final pages = data['query']?['pages'] as Map<String, dynamic>?;
+  if (pages == null || pages.isEmpty) return null;
+
+  final page = pages.values.first;
+  final imageinfo = page['imageinfo'] as List?;
+  if (imageinfo == null || imageinfo.isEmpty) return null;
+
+  return imageinfo[0]['url'] as String?;
+}
+
+Future<String?> getPronunciationUrl(String word) async {
+  final wikitext = await _fetchWiktionaryWikitext(word);
+  if (wikitext == null) return null;
+
+  final filename = _extractAudioFilename(wikitext);
+  if (filename == null) return null;
+
+  return _fetchCommonsFileUrl(filename);
+}
