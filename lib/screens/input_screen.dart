@@ -113,6 +113,8 @@ class InputScreenState extends State<InputScreen> {
       });
 
       if (!mounted) return;
+      wordController.clear();
+      sentenceController.clear();
       Navigator.push(
         context,
         MaterialPageRoute(

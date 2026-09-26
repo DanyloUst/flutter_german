@@ -81,10 +81,16 @@ class ApiService {
       final listDefinitions = parent.querySelectorAll('li.item-definition');
 
       for (final definition in listDefinitions) {
-        final em = definition.querySelector('em');
-        em?.remove();
+        // Target the definition text specifically, ignoring examples
+        // (blockquote.box-examples) and synonyms/antonyms (dl.box-synonym-antonym)
+        // entirely, rather than trying to strip them out after the fact.
+        final definitionLabel = definition.querySelector(
+          'p.txt-variant-label-short',
+        );
+        if (definitionLabel == null) continue;
 
-        definitions.add(getTextWithSeparator(definition, ' '));
+        final text = getTextWithSeparator(definitionLabel, ' ');
+        if (text.isNotEmpty) definitions.add(text);
       }
     }
 

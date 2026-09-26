@@ -49,6 +49,45 @@ String? findPreviousTextSibling(Element el) {
   return null;
 }
 
+List<String> extractSlashSeparatedForms(Element table) {
+  final forms = <String>[];
+  final currentForm = StringBuffer();
+
+  void flush() {
+    final form = currentForm.toString().trim();
+    if (form.isNotEmpty) forms.add(form);
+    currentForm.clear();
+  }
+
+  void visit(Node node) {
+    if (node is Element) {
+      if (node.localName == 'b') {
+        currentForm.write(node.text.trim());
+      } else if (node.localName == 'wbr') {
+        // no text content, just a line-break hint -- skip entirely
+      } else {
+        // recurse into other wrapper elements in case structure varies
+        for (final child in node.nodes) {
+          visit(child);
+        }
+      }
+    } else if (node is Text) {
+      final text = node.text ?? '';
+      if (text.contains('/')) {
+        flush(); // form boundary
+      }
+      // ignore other stray text (like " am ") -- not part of the word forms
+    }
+  }
+
+  for (final child in table.nodes) {
+    visit(child);
+  }
+  flush(); // capture the last form after the loop ends
+
+  return forms;
+}
+
 Element? findByExactText(Document doc, String selector, String text) {
   for (final el in doc.querySelectorAll(selector)) {
     if (el.text.trim() == text) return el;
@@ -101,22 +140,22 @@ Map<String, dynamic> scrapeAdjective(Document soup, String word) {
   final comparativeHeader = findByExactText(soup, 'span', 'comparative');
   final comparativeTable = comparativeHeader?.parent?.parent;
 
-  final comparative = comparativeTable != null
-      ? comparativeTable.querySelectorAll('b').map((b) => b.text.trim()).join()
-      : '';
-  final comparativeResult = comparative.isEmpty
+  final comparativeForms = comparativeTable != null
+      ? extractSlashSeparatedForms(comparativeTable)
+      : <String>[];
+  final comparativeResult = comparativeForms.isEmpty
       ? 'Comparative not found'
-      : comparative;
+      : comparativeForms.join(' / ');
 
   final superlativeHeader = findByExactText(soup, 'span', 'superlative');
   final superlativeTable = superlativeHeader?.parent?.parent;
 
-  final superlative = superlativeTable != null
-      ? superlativeTable.querySelectorAll('b').map((b) => b.text.trim()).join()
-      : '';
-  final superlativeResult = superlative.isEmpty
+  final superlativeForms = superlativeTable != null
+      ? extractSlashSeparatedForms(superlativeTable)
+      : <String>[];
+  final superlativeResult = superlativeForms.isEmpty
       ? 'Superlative not found'
-      : superlative;
+      : superlativeForms.join(' / ');
 
   return {'comparative': comparativeResult, 'superlative': superlativeResult};
 }
@@ -276,7 +315,9 @@ Future<List<Map<String, dynamic>>> scrapeWord(String word) async {
   if (response.statusCode == 429) {
     print('Rate limited: $url');
     print('Retry-After: ${response.headers['retry-after']}');
-    throw ApiException('Too many requests, rate limit reached. Try again later');
+    throw ApiException(
+      'Too many requests, rate limit reached. Try again later',
+    );
   }
 
   if (response.statusCode != 200) {
@@ -293,7 +334,9 @@ Future<List<Map<String, dynamic>>> scrapeWord(String word) async {
   if (info == null) {
     final searchResult = soup.querySelector('.bTrf.rClear');
     if (searchResult == null) {
-      throw ApiException('No word matches $word. Check the spelling and try again.');
+      throw ApiException(
+        'No word matches $word. Check the spelling and try again.',
+      );
     } else {
       final fallbackUrl = 'https://www.woerter.net/?w=$urlWord';
       // verify=False in Python -> use the insecure client here
@@ -325,19 +368,18 @@ Future<List<Map<String, dynamic>>> scrapeWord(String word) async {
     return resultList;
   }
 
-  
-  String getInfinitive(){
+  String getInfinitive() {
     final infinitiveHeading = soup
-      .querySelectorAll('h2.wG')
-      .where((h) => h.text.trim() == 'Infinitive')
-      .firstOrNull;
-  final infinitiveTable = infinitiveHeading?.parent;
-  final infinitiveRaw = infinitiveTable?.querySelector('tr');
-  final infinitive = infinitiveRaw != null
-      ? cleanWord(infinitiveRaw.text.trim())
-      : 'Infinitive not found';
+        .querySelectorAll('h2.wG')
+        .where((h) => h.text.trim() == 'Infinitive')
+        .firstOrNull;
+    final infinitiveTable = infinitiveHeading?.parent;
+    final infinitiveRaw = infinitiveTable?.querySelector('tr');
+    final infinitive = infinitiveRaw != null
+        ? cleanWord(infinitiveRaw.text.trim())
+        : 'Infinitive not found';
 
-  return infinitive;
+    return infinitive;
   }
 
   for (final wordType in wordTypes) {
@@ -345,10 +387,12 @@ Future<List<Map<String, dynamic>>> scrapeWord(String word) async {
 
     if (wordType == 'sein') {
       final urlInfinitive = getInfinitive();
-      typeUrl = 'https://www.verbformen.com/conjugation/${urlInfinitive}_ist.htm';
+      typeUrl =
+          'https://www.verbformen.com/conjugation/${urlInfinitive}_ist.htm';
     } else if (wordType == 'haben') {
       final urlInfinitive = getInfinitive();
-      typeUrl = 'https://www.verbformen.com/conjugation/${urlInfinitive}_hat.htm';
+      typeUrl =
+          'https://www.verbformen.com/conjugation/${urlInfinitive}_hat.htm';
     } else if (wordType == 'noun' ||
         wordType == 'neutral' ||
         wordType == 'feminine' ||

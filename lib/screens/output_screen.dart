@@ -194,12 +194,12 @@ class TextCard extends StatelessWidget {
                 ),
                 child: Row(
                   children: [
-                    Expanded(child: Text(content)),
+                    Expanded(child: Text(content, maxLines: 10)),
                     InkWell(
                       onTap: () async {
                         copyToClip(context, content);
                       },
-                      child: Icon(Icons.copy, size: 18),
+                      child: Icon(Icons.copy, size: 26, opticalSize: 26),
                     ),
                   ],
                 ),
@@ -284,18 +284,47 @@ class _DropdownCardState extends State<DropdownCard> {
                     : Expanded(
                         child: DropdownButtonFormField<String>(
                           isExpanded: true,
-                          items: widget.entries
-                              .map(
-                                (entry) => DropdownMenuItem<String>(
-                                  value: entry,
-                                  child: Text(
-                                    entry,
-                                    softWrap: true,
-                                    maxLines: null,
+                          itemHeight:
+                              null, // allow variable-height items for the dividers
+                          items: widget.entries.map((entry) {
+                            final isLast = entry == widget.entries.last;
+                            return DropdownMenuItem<String>(
+                              value: entry,
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Padding(
+                                    padding: const EdgeInsets.symmetric(
+                                      vertical: 8,
+                                    ),
+                                    child: Text(
+                                      entry,
+                                      softWrap: true,
+                                      maxLines: null,
+                                    ),
                                   ),
+                                  if (!isLast)
+                                    Divider(
+                                      height: 1,
+                                      thickness: 0.5,
+                                      color: AppColors.primaryText,
+                                    ),
+                                ],
+                              ),
+                            );
+                          }).toList(),
+                          selectedItemBuilder: (context) {
+                            return widget.entries.map((entry) {
+                              return SizedBox(
+                                width: double.infinity,
+                                child: Align(
+                                  alignment: Alignment.centerLeft,
+                                  child: Text(entry, softWrap: true),
                                 ),
-                              )
-                              .toList(),
+                              );
+                            }).toList();
+                          },
                           initialValue: selectedValue,
                           onChanged: (value) {
                             if (value == null || value == selectedValue) {
@@ -347,7 +376,7 @@ class _DropdownCardState extends State<DropdownCard> {
                     if (widget.entries.isNotEmpty)
                       copyToClip(context, selectedValue);
                   },
-                  child: Icon(Icons.copy, size: 18),
+                  child: Icon(Icons.copy, size: 26, opticalSize: 26),
                 ),
               ],
             ),
@@ -450,7 +479,7 @@ class NounSpecificData extends StatelessWidget {
         child: Column(
           children: [
             TextRow(title: 'Article: ', content: nounData.article),
-            SizedBox(height: 5),
+            SizedBox(height: 7),
             TextRow(title: 'Plural: ', content: plural),
           ],
         ),
@@ -477,9 +506,9 @@ class VerbSpecificData extends StatelessWidget {
         child: Column(
           children: [
             TextRow(title: 'Infinitive: ', content: verbData.infinitive),
-            SizedBox(height: 5),
+            SizedBox(height: 7),
             TextRow(title: 'Prateritum: ', content: verbData.prateritum),
-            SizedBox(height: 5),
+            SizedBox(height: 7),
             TextRow(title: 'Perfect: ', content: verbData.perfect),
           ],
         ),
@@ -506,7 +535,7 @@ class AdjectiveSpecificData extends StatelessWidget {
         child: Column(
           children: [
             TextRow(title: 'Comparative: ', content: adjectiveData.comparative),
-            SizedBox(height: 5),
+            SizedBox(height: 7),
             TextRow(title: 'Superlative: ', content: adjectiveData.superlative),
           ],
         ),
@@ -538,7 +567,7 @@ class TextRow extends StatelessWidget {
           onTap: () async {
             copyToClip(context, content);
           },
-          child: Icon(Icons.copy, size: 18),
+          child: Icon(Icons.copy, size: 24, opticalSize: 24),
         ),
         SizedBox(width: 5),
       ],
