@@ -5,6 +5,7 @@ import 'dart:convert';
 import 'package:html/parser.dart' as html_parser;
 import 'package:html/dom.dart';
 import 'package:flutter_german/models/api_exception.dart';
+import 'package:translator/translator.dart';
 
 class ApiService {
   static const String baseUrl = 'http://10.0.2.2:8000';
@@ -97,11 +98,12 @@ class ApiService {
     return definitions.isEmpty ? ['No definitions found'] : definitions;
   }
 
-  static Future<String> translateShitty(
+  /*static Future<String> translateShitty(
     String text2, {
     String src = 'de',
     String dst = 'en',
   }) async {
+    print('TRANSLATING THIS: $text2');
     final url = Uri.parse(
       'https://translate.google.com/_/TranslateWebserverUi/data/batchexecute',
     );
@@ -145,8 +147,15 @@ class ApiService {
     final stripped = response.body.substring(6);
 
     final outer = jsonDecode(stripped) as List;
+    print('THIS IS OUTER: $outer');
     final inner = jsonDecode(outer[0][2] as String) as List;
-
+    print('THIS IS INNER: $inner');
     return inner[1][0][0][5][0][0] as String;
+  }*/
+
+  static Future<String> translateText(String sourceText) async {
+    final translator = GoogleTranslator();
+    final translation = await translator.translate(sourceText, from: 'de', to: 'en');
+    return translation.text;
   }
 }
